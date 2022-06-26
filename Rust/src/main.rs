@@ -1,7 +1,5 @@
-use async_std::fs::File;
 use async_std::io::BufReader;
 use async_std::io::Error;
-use async_std::io::ReadExt;
 use async_std::io::Result;
 use async_std::io::Stderr;
 use async_std::io::prelude::BufReadExt;
@@ -18,7 +16,9 @@ use lazy_static::lazy_static;
 use regex::bytes;
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::fs::File;
 use std::io::ErrorKind;
+use std::io::Read;
 use std::ops::DerefMut;
 use std::process::exit;
 
@@ -221,12 +221,12 @@ async fn handle_request(from: &mut BufReader<TcpStream>, remote: SocketAddr, req
 
     let path = ".".to_owned() + &req.uri;
 
-    match File::open(&path).await {
+    match File::open(&path) {
         Ok(mut f) => {
             if serve_body {
                 let mut buf = Vec::<u8>::new();
 
-                match f.read_to_end(&mut buf).await {
+                match f.read_to_end(&mut buf) {
                     Ok(_) => { respond(from, remote, 200, "OK", Some(buf), req.http09).await; }
                     Err(err) => {
                         complain("read", &path, &err).await;
@@ -235,10 +235,6 @@ async fn handle_request(from: &mut BufReader<TcpStream>, remote: SocketAddr, req
                 }
             } else {
                 respond(from, remote, 200, "OK", None, req.http09).await;
-            }
-
-            if let Err(err) = f.close().await {
-                complain("close", path, &err).await;
             }
         }
         Err(err) => {
